@@ -1,63 +1,77 @@
 import os
-from flask import Flask, request, render_template, redirect, url_for, send_from_directory, flash
+from flask import Flask, render_template, request, redirect, url_for
+from datetime import datetime
 from werkzeug.utils import secure_filename
-import ipfs_client  # This is your custom file for IPFS/Filebase upload
+from ipfs_client import IPFSClient  # Make sure this file exists and is correct
 
+# ----------------------------
+# Flask App Setup
+# ----------------------------
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.config['UPLOAD_FOLDER'] = 'uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-UPLOAD_FOLDER = "uploads"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# ----------------------------
+# Jinja2 Filter
+# ----------------------------
+@app.template_filter('timestamp_to_string')
+def timestamp_to_string(timestamp):
+    """Convert UNIX timestamp to human-readable string."""
+    try:
+        return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        return "Invalid timestamp"
 
-ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "gif", "zip", "rar"}
+# ----------------------------
+# Initialize IPFS client
+# ----------------------------
+ipfs_client = IPFSClient()  # Make sure IPFSClient is correctly set up in ipfs_client.py
 
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+# ----------------------------
+# Example Blockchain Data
+# ----------------------------
+chain = [
+    {'timestamp': 1697865600, 'data': 'Genesis Block', 'hash': 'QmExample1'},
+    {'timestamp': 1697879200, 'data': 'Second Block', 'hash': 'QmExample2'},
+]
 
-
-@app.route("/")
+# ----------------------------
+# Routes
+# ----------------------------
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html', chain=chain)
 
-
-@app.route("/upload", methods=["POST"])
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    if "file" not in request.files:
-        flash("No file part")
-        return redirect(request.url)
+    if 'file' not in request.files:
+        return redirect(url_for('index'))
 
-    file = request.files["file"]
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(url_for('index'))
 
-    if file.filename == "":
-        flash("No selected file")
-        return redirect(request.url)
-
-    if file and allowed_file(file.filename):
+    if file:
         filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
 
         try:
-            # Upload to Filebase (via ipfs_client)
+            # Upload to IPFS
             ipfs_hash = ipfs_client.upload_file(file_path)
-            flash(f"File uploaded successfully! IPFS CID: {ipfs_hash}")
-            return render_template("success.html", cid=ipfs_hash)
+            # Add to blockchain (example)
+            chain.append({
+                'timestamp': datetime.utcnow().timestamp(),
+                'data': filename,
+                'hash': ipfs_hash
+            })
         except Exception as e:
-            flash(f"Upload failed: {str(e)}")
-            return redirect(url_for("index"))
+            return f"Upload failed: {str(e)}"
 
-    else:
-        flash("Invalid file type")
-        return redirect(request.url)
+    return redirect(url_for('index'))
 
-
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
-
-
-# ✅ Important for Render deployment
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+# ----------------------------
+# Run App
+# ----------------------------
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
