@@ -99,8 +99,8 @@ def upload_file():
         logger.info(f"⛓️ Block #{new_block.index} added to blockchain for file: {filename}")
         logger.info(f"📊 Total blocks in chain: {len(blockchain.get_chain())}")
         
-        # Redirect back to home page to show updated blockchain
-        return redirect(url_for('index'))
+        # Return success message with IPFS hash
+        return f"File uploaded successfully! IPFS CID: {ipfs_hash}"
         
     except Exception as e:
         logger.error(f"❌ Error uploading file: {str(e)}")
