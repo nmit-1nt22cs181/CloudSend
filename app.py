@@ -1,25 +1,21 @@
-from flask import Flask, render_template, request, redirect, url_for
 import os
-from ipfs_client import IPFSClient
+from flask import Flask, request, render_template, redirect, url_for, send_from_directory, flash
 from werkzeug.utils import secure_filename
+import ipfs_client  # This is your custom file for IPFS/Filebase upload
 
-# -----------------------------
-# Configuration
-# -----------------------------
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
+
 UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # Optional: 50MB max file size
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# -----------------------------
-# Initialize IPFS client
-# -----------------------------
-ipfs_client = IPFSClient()
+ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "gif", "zip", "rar"}
 
-# -----------------------------
-# Routes
-# -----------------------------
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -28,28 +24,40 @@ def index():
 @app.route("/upload", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
-        return render_template("upload_error.html", error="No file part in the request.")
+        flash("No file part")
+        return redirect(request.url)
 
     file = request.files["file"]
+
     if file.filename == "":
-        return render_template("upload_error.html", error="No file selected.")
+        flash("No selected file")
+        return redirect(request.url)
 
-    # Secure filename
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(file_path)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(file_path)
 
-    try:
-        # Upload file to IPFS
-        ipfs_hash = ipfs_client.upload_file(file_path)
-        return render_template("upload_success.html", hash=ipfs_hash, filename=filename)
+        try:
+            # Upload to Filebase (via ipfs_client)
+            ipfs_hash = ipfs_client.upload_file(file_path)
+            flash(f"File uploaded successfully! IPFS CID: {ipfs_hash}")
+            return render_template("success.html", cid=ipfs_hash)
+        except Exception as e:
+            flash(f"Upload failed: {str(e)}")
+            return redirect(url_for("index"))
 
-    except Exception as e:
-        return render_template("upload_error.html", error=str(e))
+    else:
+        flash("Invalid file type")
+        return redirect(request.url)
 
 
-# -----------------------------
-# Run locally
-# -----------------------------
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+# ✅ Important for Render deployment
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
