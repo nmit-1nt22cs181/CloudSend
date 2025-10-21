@@ -16,6 +16,9 @@ app.config['UPLOAD_FOLDER'] = "uploads"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
+# Disable template caching in development
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'zip', 'mp4', 'mp3'}
 
@@ -46,7 +49,12 @@ def request_entity_too_large(error):
 @app.route("/", methods=["GET"])
 def index():
     """Main page with upload form and blockchain display"""
+    # Reload blockchain from file to ensure we have latest data
+    blockchain.load_from_file()
     chain = blockchain.get_chain()
+    
+    logger.info(f"📊 Displaying blockchain with {len(chain)} blocks")
+    
     return render_template("index.html", chain=chain)
 
 @app.route("/upload", methods=["POST"])
@@ -79,28 +87,30 @@ def upload_file():
     try:
         # Save file temporarily
         file.save(file_path)
-        logger.info(f"File saved temporarily: {filename}")
+        logger.info(f"📁 File saved temporarily: {filename}")
         
         # Upload to IPFS
         ipfs_hash = ipfs_client.upload_file(file_path)
-        logger.info(f"File uploaded to IPFS: {filename}, CID: {ipfs_hash}")
+        logger.info(f"☁️ File uploaded to IPFS: {filename}, CID: {ipfs_hash}")
         
         # Add to blockchain
-        blockchain.create_block(filename, ipfs_hash)
+        new_block = blockchain.create_block(filename, ipfs_hash)
         blockchain.save_to_file()  # Persist blockchain
-        logger.info(f"Block added to blockchain for file: {filename}")
+        logger.info(f"⛓️ Block #{new_block.index} added to blockchain for file: {filename}")
+        logger.info(f"📊 Total blocks in chain: {len(blockchain.get_chain())}")
         
-        return f"File uploaded successfully! IPFS CID: {ipfs_hash}"
+        # Redirect back to home page to show updated blockchain
+        return redirect(url_for('index'))
         
     except Exception as e:
-        logger.error(f"Error uploading file: {str(e)}")
+        logger.error(f"❌ Error uploading file: {str(e)}")
         return f"Error uploading file: {str(e)}", 500
         
     finally:
         # Clean up temporary file
         if os.path.exists(file_path):
             os.remove(file_path)
-            logger.info(f"Temporary file cleaned up: {filename}")
+            logger.info(f"🧹 Temporary file cleaned up: {filename}")
 
 @app.route("/download", methods=["POST"])
 def download_file():
@@ -116,7 +126,7 @@ def download_file():
         logger.warning(f"Invalid IPFS hash format: {ipfs_hash}")
         return "Invalid IPFS hash format", 400
     
-    logger.info(f"Redirecting to IPFS gateway for hash: {ipfs_hash}")
+    logger.info(f"📥 Redirecting to IPFS gateway for hash: {ipfs_hash}")
     # Redirect to Filebase IPFS gateway
     return redirect(f"https://ipfs.filebase.io/ipfs/{ipfs_hash}")
 
@@ -125,10 +135,10 @@ def validate_blockchain():
     """Validate blockchain integrity"""
     is_valid = blockchain.is_valid()
     if is_valid:
-        logger.info("Blockchain validation: VALID")
+        logger.info("✅ Blockchain validation: VALID")
         return {"status": "valid", "message": "Blockchain is valid"}, 200
     else:
-        logger.warning("Blockchain validation: INVALID")
+        logger.warning("❌ Blockchain validation: INVALID")
         return {"status": "invalid", "message": "Blockchain has been tampered with!"}, 400
 
 if __name__ == "__main__":

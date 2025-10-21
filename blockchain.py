@@ -39,9 +39,13 @@ class Blockchain:
         Returns:
             Block: The newly created block
         """
+        # If chain is empty, create genesis block first
+        if not self.chain:
+            self.create_genesis_block()
+        
         index = len(self.chain)
         timestamp = time.time()
-        previous_hash = self.chain[-1].hash if self.chain else "0"
+        previous_hash = self.chain[-1].hash
         new_block = Block(index, timestamp, filename, ipfs_hash, previous_hash)
         self.chain.append(new_block)
         return new_block
@@ -100,9 +104,11 @@ class Blockchain:
             
             with open(self.blockchain_file, 'w') as f:
                 json.dump(data, f, indent=2)
+            
+            print(f"✅ Blockchain saved: {len(self.chain)} blocks")
                 
         except Exception as e:
-            print(f"Error saving blockchain: {str(e)}")
+            print(f"❌ Error saving blockchain: {str(e)}")
 
     def load_from_file(self, filename=None):
         """
@@ -130,18 +136,19 @@ class Blockchain:
                     )
                     # Verify the loaded hash matches
                     if block.hash != block_data['hash']:
-                        print(f"Warning: Block {block.index} hash mismatch!")
+                        print(f"⚠️ Warning: Block {block.index} hash mismatch!")
                     self.chain.append(block)
                     
-                print(f"Loaded {len(self.chain)} blocks from {self.blockchain_file}")
+                print(f"✅ Loaded {len(self.chain)} blocks from {self.blockchain_file}")
             else:
                 # No existing blockchain file, create genesis block
+                print("📝 No existing blockchain found, creating genesis block...")
                 self.create_genesis_block()
                 self.save_to_file()
-                print("Created new blockchain with genesis block")
+                print("✅ Created new blockchain with genesis block")
                 
         except Exception as e:
-            print(f"Error loading blockchain: {str(e)}")
+            print(f"❌ Error loading blockchain: {str(e)}")
             # Fallback to creating new blockchain
             self.chain = []
             self.create_genesis_block()
