@@ -1,24 +1,30 @@
-import os
 import requests
-from dotenv import load_dotenv
+import base64
+import os
 
-load_dotenv()
+class IPFSClient:
+    def __init__(self):
+        # ===== HARD-CODED INFURA CREDENTIALS =====
+        project_id = "2ce17c32eee141759c06e7a7fb62b199"       # Replace with your Infura Project ID
+        project_secret = "utDvYXlhLdYNm0AH4f8PqmD0w67q9oE2EvTGYwTFd2L/jOWMwcxDRg"  # Replace with your Infura Project Secret
 
-PROJECT_ID = os.getenv("INFURA_PROJECT_ID")
-PROJECT_SECRET = os.getenv("INFURA_PROJECT_SECRET")
+        auth_string = f"{project_id}:{project_secret}"
+        self.auth_header = {
+            "Authorization": "Basic " + base64.b64encode(auth_string.encode()).decode()
+        }
+        self.api_url = "https://ipfs.infura.io:5001/api/v0"
 
-INFURA_IPFS_API = "https://ipfs.infura.io:5001/api/v0/add"
+    def upload_file(self, file_path):
+        try:
+            with open(file_path, "rb") as f:
+                files = {"file": f}
+                response = requests.post(f"{self.api_url}/add", files=files, headers=self.auth_header)
 
-def upload_file(file_path):
-    with open(file_path, "rb") as f:
-        response = requests.post(
-            INFURA_IPFS_API,
-            files={"file": f},
-            auth=(PROJECT_ID, PROJECT_SECRET)
-        )
-    
-    if response.status_code == 200:
-        result = response.json()
-        return result["Hash"]
-    else:
-        raise Exception(f"Upload failed: {response.status_code} - {response.text}")
+            if response.status_code != 200:
+                raise Exception(f"Upload failed: {response.status_code} - {response.text}")
+
+            result = response.json()
+            return result["Hash"]
+
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Request failed: {str(e)}")
