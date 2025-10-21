@@ -7,27 +7,24 @@ load_dotenv()
 INFURA_PROJECT_ID = os.getenv("INFURA_PROJECT_ID")
 INFURA_PROJECT_SECRET = os.getenv("INFURA_PROJECT_SECRET")
 
-class IPFSClient:
-    def __init__(self):
-        self.api_url = "https://ipfs.infura.io:5001/api/v0/add"
-        self.auth = (INFURA_PROJECT_ID, INFURA_PROJECT_SECRET)
+# Infura IPFS endpoint
+INFURA_IPFS_URL = "https://ipfs.infura.io:5001/api/v0/add"
 
-    def upload_file(self, file_path):
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(self.api_url, files=files, auth=self.auth)
+def upload_file(file_path):
+    with open(file_path, "rb") as f:
+        files = {"file": f}
+        auth = (INFURA_PROJECT_ID, INFURA_PROJECT_SECRET)
+        response = requests.post(INFURA_IPFS_URL, files=files, auth=auth)
 
-        print("\n--- INFURA IPFS RESPONSE DEBUG ---")
-        print("Status Code:", response.status_code)
-        print("Raw Response:", response.text)
-        print("----------------------------------\n")
+    print("DEBUG status code:", response.status_code)
+    print("DEBUG text:", response.text)
 
-        if response.status_code != 200:
-            raise Exception(f"Upload failed: {response.status_code} - {response.text}")
-
+    if response.status_code == 200 and "Hash" in response.text:
         try:
             result = response.json()
-            print("Parsed JSON:", result)
             return result["Hash"]
-        except requests.exceptions.JSONDecodeError:
-            raise Exception("Invalid JSON from Infura. Full response printed above.")
+        except Exception:
+            # fallback: extract hash manually
+            return response.text.split('"Hash":"')[1].split('"')[0]
+    else:
+        raise Exception(f"IPFS upload failed: {response.text}")
