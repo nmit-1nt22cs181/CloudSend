@@ -16,12 +16,10 @@
             <p>Your decentralized cloud storage with blockchain verification</p>
         </header>
 
-        <!-- Upload & Download Section -->
         <div class="file-sections">
-            <!-- Upload Section -->
             <div class="card">
                 <h2>Upload a File</h2>
-                <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                <form action="/upload" method="post" enctype="multipart/form-data">
                     <div class="file-input-wrapper">
                         <input type="file" name="file" id="file-input" required>
                         <label for="file-input" class="file-input-label">Choose File</label>
@@ -31,16 +29,6 @@
                 </form>
             </div>
 
-            <!-- Minimal IPFS Upload Form (from your snippet) -->
-            <div class="card">
-                <h2>Simple IPFS Upload</h2>
-                <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
-                    <input type="file" name="file" required>
-                    <input type="submit" value="Upload">
-                </form>
-            </div>
-
-            <!-- Download Section -->
             <div class="card">
                 <h2>Download a File</h2>
                 <form action="/download" method="post">
@@ -50,7 +38,6 @@
             </div>
         </div>
 
-        <!-- Centered Blockchain Table -->
         <div class="blockchain-wrapper">
             <div class="card blockchain-card">
                 <h2>Uploaded Files Blockchain</h2>
@@ -70,7 +57,7 @@
                             {% for block in chain %}
                             <tr>
                                 <td>{{ block.index }}</td>
-                                <td>{{ block.timestamp | int | round(0) }}</td>
+                                <td>{{ block.timestamp | round(0) | int | timestamp_to_string }}</td>
                                 <td>{{ block.filename }}</td>
                                 <td>{{ block.ipfs_hash }}</td>
                                 <td>{{ block.hash }}</td>
@@ -85,13 +72,12 @@
 
     </div>
 
-    <!-- Script to show selected file name -->
     <script>
         const fileInput = document.getElementById('file-input');
         const fileName = document.getElementById('file-name');
 
         fileInput.addEventListener('change', () => {
-            if(fileInput.files.length > 0) {
+            if (fileInput.files.length > 0) {
                 fileName.textContent = fileInput.files[0].name;
             } else {
                 fileName.textContent = "No file chosen";
