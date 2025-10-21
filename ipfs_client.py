@@ -1,36 +1,41 @@
-# ipfs_client.py - IPFS RPC API Version
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+# ipfs_client.py - S3 Compatible API Version
+import boto3
+from botocore.exceptions import ClientError, NoCredentialsError
 import os
 
 class IPFSClient:
     def __init__(self):
-        # Filebase IPFS RPC API endpoint
-        self.api_endpoint = "https://rpc.filebase.io/api/v0/add"
+        # Get credentials from environment variables with hardcoded fallback
+        access_key = os.getenv('FILEBASE_ACCESS_KEY', '119A3E62CFD56056C119')
+        secret_key = os.getenv('FILEBASE_SECRET_KEY', '7u6qNi6p3SXuf6aAR6LGHUuYV6JlEPMpmcpw8XzM')
         
-        # Get API key from environment variable with hardcoded fallback
-        self.api_key = os.getenv('FILEBASE_RPC_API_KEY', 'MTE5QTNFNjJDRkQ1NjA1NkMxMTk6N3U2cU5pNnAzU1h1ZjZhQVI2TEdIVXVZVjZKbEVQTXBtY3B3OFh6TTpjbG91ZC1zZW5kLXNhbmppdGg=')
+        # Bucket name - REPLACE 'cloudsend-uploads' with YOUR actual bucket name from Filebase!
+        self.bucket_name = os.getenv('FILEBASE_BUCKET', 'cloud-send-sanjith')
         
-        if not self.api_key:
+        if not access_key:
             raise ValueError(
-                "FILEBASE_RPC_API_KEY environment variable not set. "
-                "Please set it with your Filebase RPC API key."
+                "FILEBASE_ACCESS_KEY environment variable not set. "
+                "Please set it with your Filebase Access Key ID."
             )
         
-        # Setup session with retry logic for better reliability
-        self.session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[429, 500, 502, 503, 504],
+        if not secret_key:
+            raise ValueError(
+                "FILEBASE_SECRET_KEY environment variable not set. "
+                "Please set it with your Filebase Secret Access Key."
+            )
+        
+        # Initialize S3 client with Filebase endpoint
+        self.s3_client = boto3.client(
+            's3',
+            endpoint_url='https://s3.filebase.com',
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name='us-east-1'  # Filebase uses us-east-1
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount('https://', adapter)
 
     def upload_file(self, file_path):
         """
-        Upload a file to IPFS via Filebase RPC API
+        Upload a file to IPFS via Filebase S3 API
         
         Args:
             file_path: Path to the file to upload
@@ -41,39 +46,41 @@ class IPFSClient:
         Raises:
             Exception: If upload fails
         """
-        headers = {
-            "Authorization": f"Bearer {self.api_key}"
-        }
-
         try:
-            with open(file_path, "rb") as f:
-                files = {"file": f}
-                response = self.session.post(
-                    self.api_endpoint, 
-                    headers=headers, 
-                    files=files,
-                    timeout=30
-                )
-
-            # Check for HTTP errors
-            response.raise_for_status()
-
-            # IPFS RPC API returns JSON with 'Hash' key (the CID)
-            result = response.json()
-            if "Hash" not in result:
-                raise Exception(f"No CID returned from Filebase RPC API: {result}")
-
-            return result["Hash"]
-
-        except requests.exceptions.Timeout:
-            raise Exception("Upload timed out after 30 seconds")
-        except requests.exceptions.ConnectionError:
-            raise Exception("Connection error - check your internet connection")
-        except requests.exceptions.HTTPError as e:
-            raise Exception(f"HTTP error during upload: {e.response.status_code} - {e.response.text}")
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Upload failed: {str(e)}")
+            # Get just the filename for the S3 key
+            filename = os.path.basename(file_path)
+            
+            # Upload file to Filebase bucket
+            self.s3_client.upload_file(file_path, self.bucket_name, filename)
+            
+            # Get the CID from the file metadata
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=filename)
+            
+            # Filebase returns the CID in the metadata
+            cid = response.get('Metadata', {}).get('cid')
+            
+            if not cid:
+                # Fallback: try to get it from custom headers
+                cid = response.get('ResponseMetadata', {}).get('HTTPHeaders', {}).get('x-amz-meta-cid')
+            
+            if not cid:
+                raise Exception("No CID returned from Filebase after upload")
+            
+            return cid
+            
         except FileNotFoundError:
             raise Exception(f"File not found: {file_path}")
+        except NoCredentialsError:
+            raise Exception("Invalid Filebase credentials")
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            
+            if error_code == 'NoSuchBucket':
+                raise Exception(f"Bucket '{self.bucket_name}' does not exist. Please create it in Filebase first.")
+            elif error_code == 'AccessDenied':
+                raise Exception("Access denied. Check your Filebase credentials and bucket permissions.")
+            else:
+                raise Exception(f"S3 error: {error_code} - {error_message}")
         except Exception as e:
-            raise Exception(f"Unexpected error during upload: {str(e)}")
+            raise Exception(f"Upload failed: {str(e)}")
