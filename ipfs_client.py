@@ -9,8 +9,8 @@ class IPFSClient:
         # Filebase IPFS API endpoint
         self.api_endpoint = "https://api.filebase.io/v1/ipfs/add"
         
-        # Get API key from environment variable (REQUIRED)
-        self.api_key = os.getenv('MTE5QTNFNjJDRkQ1NjA1NkMxMTk6N3U2cU5pNnAzU1h1ZjZhQVI2TEdIVXVZVjZKbEVQTXBtY3B3OFh6TTpjbG91ZC1zZW5kLXNhbmppdGg=')
+        # Get API key from environment variable with hardcoded fallback
+        self.api_key = os.getenv('FILEBASE_API_KEY', 'MTE5QTNFNjJDRkQ1NjA1NkMxMTk6N3U2cU5pNnAzU1h1ZjZhQVI2TEdIVXVZVjZKbEVQTXBtY3B3OFh6TTpjbG91ZC1zZW5kLXNhbmppdGg=')
         
         if not self.api_key:
             raise ValueError(
