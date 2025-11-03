@@ -27,18 +27,20 @@ import secrets
 class Settings(BaseSettings):
     UPLOAD_FOLDER: str = "uploads"
     MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024
-    SECRET_KEY: str = secrets.token_urlsafe(32)  # Generate random secret key
+    SECRET_KEY: str = "2b6f6e4d0b58e1b64ad089a1e9984a963a65e0a72c3f0b1e3b2a"
     TEMPLATES_AUTO_RELOAD: bool = True
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
-    GOOGLE_REDIRECT_URI: str
-    DATABASE_URL: str
+    GOOGLE_CLIENT_ID: str = (
+        "445316109831-si114midel00hht3384vf6c7pvk1cb2h.apps.googleusercontent.com"
+    )
+    GOOGLE_CLIENT_SECRET: str = "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"
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://postgres:rishi5204@localhost:5432/CloudSend"
+    )
 
     class Config:
-        env_file = ".env"
         case_sensitive = True
         extra = "ignore"
-        env_file_encoding = "utf-8"
 
 
 settings = Settings()
