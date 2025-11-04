@@ -222,4 +222,8 @@ class IPFSClient:
 
         except Exception as e:
             logger.error(f"Error getting file info: {e}")
+<<<<<<< HEAD
             return None
+=======
+            return None
+>>>>>>> 9d412e3b7dec77adff260fa7c2b563790b435f65

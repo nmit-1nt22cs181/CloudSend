@@ -508,4 +508,8 @@ async def session_status(request: Request, db: AsyncSession = Depends(get_db)):
         return JSONResponse(
             status_code=401,
             content={"authenticated": False},
+<<<<<<< HEAD
         )
+=======
+        )
+>>>>>>> 9d412e3b7dec77adff260fa7c2b563790b435f65

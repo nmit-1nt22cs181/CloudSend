@@ -94,4 +94,8 @@ class Blockchain:
         """
         # Logic removed as blockchain.json is no longer used for persistence
         if not self.chain:
+<<<<<<< HEAD
             self.create_genesis_block()
+=======
+            self.create_genesis_block()
+>>>>>>> 9d412e3b7dec77adff260fa7c2b563790b435f65
