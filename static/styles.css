@@ -31,14 +31,42 @@ header {
     text-align: center;
     margin-bottom: 40px;
 }
+
 header h1 {
     font-size: 3rem;
     color: #1e90ff;
     margin-bottom: 10px;
 }
+
 header p {
     font-size: 1.2rem;
     color: #b0c4de;
+}
+
+/* Auth controls styling */
+.auth-controls {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.welcome-text {
+    font-size: 1.1rem;
+    color: #b0c4de;
+    margin: 0;
+}
+
+.welcome-text strong {
+    color: #1e90ff;
+}
+
+.logout-btn {
+    display: inline-block;
+    max-width: 150px;
+    padding: 10px 20px;
+    font-size: 14px;
 }
 
 /* Upload & Download Section */
@@ -103,7 +131,7 @@ header p {
 .input-text {
     padding: 12px;
     margin: 10px 0;
-    width: 100%;
+    width: 90%;
     border: 1px solid #444;
     border-radius: 6px;
     font-size: 16px;
@@ -127,10 +155,71 @@ header p {
     width: 100%;
     max-width: 350px;
     transition: background-color 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
 }
 
 .btn:hover {
     background-color: #1c86ee;
+}
+
+.btn:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    width: auto;
+    max-width: none;
+    background-color: #1e90ff;
+}
+
+.btn-small.copy-btn {
+    color: #fff;
+}
+
+.copy-btn {
+    color: #fff;
+}
+
+.btn-small:hover {
+    background-color: #1c86ee;
+}
+
+/* Error container */
+.error-container {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.error-container h2 {
+    color:#fff;
+    font-size: 2rem;
+    margin-bottom: 20px;
+}
+
+.error-container p {
+    color: #b0c4de;
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+}
+
+/* No files message */
+.no-files-message {
+    text-align: center;
+    color: #b0c4de;
+    font-size: 1.1rem;
+    padding: 40px 20px;
+}
+
+/* Login prompt */
+.login-prompt {
+    text-align: center;
+    color: #b0c4de;
+    font-size: 1.1rem;
+    margin: 40px 0;
 }
 
 /* Blockchain Table Centered */
@@ -142,7 +231,7 @@ header p {
 
 .blockchain-card {
     width: 100%;
-    max-width: 1200px; /* spacious for hashes */
+    max-width: 1200px;
     overflow-x: auto;
 }
 
@@ -153,7 +242,7 @@ header p {
 
 table {
     width: 100%;
-    min-width: 1200px;
+    min-width: 800px;
     border-collapse: collapse;
     margin-top: 20px;
     font-size: 14px;
@@ -177,21 +266,28 @@ tbody tr {
 }
 
 tbody tr:hover {
-    transform: scale(1.02);
+    transform: scale(1.01);
     background-color: rgba(30, 30, 50, 1);
 }
 
 tbody td {
     padding: 12px 15px;
     text-align: center;
+    min-width: 100px;
+}
+
+.hash-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
     word-break: break-all;
-    min-width: 150px;
+    max-width: 300px;
 }
 
 /* Scrollbar styling for table */
 .table-wrapper::-webkit-scrollbar {
     height: 8px;
 }
+
 .table-wrapper::-webkit-scrollbar-thumb {
     background-color: rgba(30, 144, 255, 0.6);
     border-radius: 4px;
@@ -203,7 +299,124 @@ tbody td {
         flex-direction: column;
         gap: 20px;
     }
+    
     table {
-        min-width: 900px;
+        min-width: 600px;
     }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+}
+
+/* Login Page Specific Styling */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+}
+
+.login-container h1 {
+    font-size: 3.5rem;
+    margin-bottom: 20px;
+    color: #1e90ff;
+}
+
+.login-container p {
+    font-size: 1.5rem;
+    color: #b0c4de;
+    margin-bottom: 30px;
+}
+
+.login-btn {
+    max-width: 250px;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    text-decoration: none;
+    color: #fff;
+    background-color: #4285F4;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+    display: inline-block;
+}
+
+.login-btn:hover {
+    background-color: #357ae8;
+}
+
+/* Popup Styles */
+.popup-container {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.7);
+    align-items: center;
+    justify-content: center;
+}
+
+.popup-content {
+    background-color: rgba(20, 20, 40, 0.98);
+    margin: auto;
+    padding: 30px;
+    border: 2px solid #1e90ff;
+    border-radius: 12px;
+    width: 80%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    text-align: center;
+    position: relative;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.popup-content h3 {
+    color: #1e90ff;
+    margin-bottom: 15px;
+    font-size: 1.8rem;
+}
+
+.popup-content p {
+    font-size: 1.1rem;
+    color: #b0c4de;
+    margin-bottom: 10px;
+}
+
+.close-btn {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: #fff;
+    text-decoration: none;
+}
+
+.popup-content .btn {
+    margin-top: 20px;
+    max-width: 200px;
 }

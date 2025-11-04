@@ -1,147 +1,511 @@
-# app.py
-from flask import Flask, render_template, request, redirect, url_for
+# app.py - FIXED VERSION WITH PROPER SESSION MANAGEMENT
+from fastapi import FastAPI, Request, Form, UploadFile, Depends, HTTPException, status
+from fastapi.responses import (
+    HTMLResponse,
+    RedirectResponse,
+    JSONResponse,
+    StreamingResponse,
+)
+from fastapi.templating import Jinja2Templates
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 import logging
 from ipfs_client import IPFSClient
 from blockchain import Blockchain
+from pydantic_settings import BaseSettings
+from starlette.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth
+from database import db_manager, get_db
+from database import User, File
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import secrets
 
-# Setup logging
+
+class Settings(BaseSettings):
+    UPLOAD_FOLDER: str = "uploads"
+    MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024
+    SECRET_KEY: str = secrets.token_urlsafe(32)  # Generate random secret key
+    TEMPLATES_AUTO_RELOAD: bool = True
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_REDIRECT_URI: str
+    DATABASE_URL: str
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "ignore"
+        env_file_encoding = "utf-8"
+
+
+settings = Settings()
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = "uploads"
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
+app = FastAPI()
 
-# Disable template caching in development
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+# ✅ Enhanced session security with strict settings
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=3600,  # 1 hour
+    same_site="lax",  # Changed to 'lax' for OAuth compatibility
+    https_only=False,
+    path="/",
+)
 
-# Allowed file extensions
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'zip', 'mp4', 'mp3'}
+oauth = OAuth()
+oauth.register(
+    name="google",
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
 
-# Ensure the uploads folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Initialize IPFS client and blockchain
+
+# ✅ Dependency to check if user is authenticated
+async def get_current_user_optional(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> User | None:
+    """Get current user if authenticated, otherwise return None"""
+    user_email = request.session.get("user")
+    authenticated = request.session.get("authenticated", False)
+
+    if not user_email or not authenticated:
+        return None
+
+    try:
+        result = await db.execute(select(User).where(User.email == user_email))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            # Clear invalid session
+            request.session.clear()
+            return None
+
+        return user
+    except Exception as e:
+        logger.error(f"Error fetching user: {e}")
+        request.session.clear()
+        return None
+
+
+async def get_current_user_required(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> User:
+    """Get current user or raise 401"""
+    user = await get_current_user_optional(request, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    return user
+
+
+@app.get("/google-login")
+async def google_login(request: Request):
+    """Initiate Google OAuth flow"""
+    redirect_uri = settings.GOOGLE_REDIRECT_URI.strip()
+    logger.info(f"Redirecting to Google OAuth with redirect URI: {redirect_uri}")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth")
+async def auth(request: Request, db: AsyncSession = Depends(get_db)):
+    """Handle Google OAuth callback"""
+    try:
+        logger.info("Processing OAuth callback")
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get("userinfo")
+        if not user_info:
+            user_info = await oauth.google.parse_id_token(request, token)
+
+        logger.info(f"User info received: {user_info.get('email')}")
+
+        result = await db.execute(
+            select(User).where(User.google_id == user_info["sub"])
+        )
+        user = result.scalar_one_or_none()
+
+        if user:
+            logger.info(f"Existing user logged in: {user.email}")
+        else:
+            user = User(
+                google_id=user_info["sub"],
+                email=user_info["email"],
+                name=user_info.get("name", ""),
+                profile_pic=user_info.get("picture", ""),
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            logger.info(f"New user created: {user.email}")
+
+        # ✅ Set session with authentication flag
+        request.session.clear()  # Clear any old session data
+        request.session["user"] = user.email
+        request.session["authenticated"] = True
+        request.session["login_time"] = datetime.now().isoformat()
+
+        logger.info(f"✅ User authenticated successfully: {user.email}")
+
+        return RedirectResponse(url="/", status_code=302)
+
+    except Exception as e:
+        logger.error(f"Auth error: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        return RedirectResponse(url="/login?error=auth_failed", status_code=302)
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Clear session and logout user"""
+    user_email = request.session.get("user")
+    request.session.clear()
+    logger.info(f"User logged out: {user_email}")
+    return RedirectResponse(url="/login", status_code=302)
+
+
+@app.on_event("startup")
+async def startup_db_client():
+    """Initialize PostgreSQL connection on startup"""
+    if not settings.DATABASE_URL:
+        logger.error("DATABASE_URL is not set in environment variables!")
+        raise ValueError("DATABASE_URL environment variable is required")
+    logger.info("Connecting to database...")
+    await db_manager.connect(settings.DATABASE_URL)
+    logger.info("✅ Database connected successfully")
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    """Close PostgreSQL connection on shutdown"""
+    await db_manager.close()
+
+
+def allowed_file(filename: str) -> bool:
+    """Check if file extension is allowed"""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def timestamp_to_string(dt_object: datetime) -> str:
+    """Convert a datetime object to a human-readable string."""
+    return dt_object.strftime("%Y-%m-%d %H:%M:%S")
+
+
+ALLOWED_EXTENSIONS = {
+    "txt",
+    "pdf",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "doc",
+    "docx",
+    "zip",
+    "mp4",
+    "mp3",
+}
+
+os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
+
 ipfs_client = IPFSClient()
 blockchain = Blockchain()
 
-# Load existing blockchain from file if it exists
-blockchain.load_from_file()
+templates = Jinja2Templates(directory="templates")
+templates.env.filters["timestamp_to_string"] = timestamp_to_string
 
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.template_filter('timestamp_to_string')
-def timestamp_to_string(timestamp):
-    """Convert Unix timestamp to readable string"""
-    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+@app.exception_handler(413)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle file too large errors"""
+    return JSONResponse(
+        status_code=413,
+        content={
+            "message": f"File too large (max {settings.MAX_CONTENT_LENGTH / (1024 * 1024):.0f}MB)"
+        },
+    )
 
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    """Handle file too large error"""
-    return 'File too large (max 16MB)', 413
 
-@app.route("/", methods=["GET"])
-def index():
-    """Main page with upload form and blockchain display"""
-    # Reload blockchain from file to ensure we have latest data
-    blockchain.load_from_file()
-    chain = blockchain.get_chain()
-    
-    logger.info(f"📊 Displaying blockchain with {len(chain)} blocks")
-    
-    return render_template("index.html", chain=chain)
+# ✅ FIXED: Root route with proper authentication check
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request, db: AsyncSession = Depends(get_db)):
+    """Root route - requires authentication"""
+    user = await get_current_user_optional(request, db)
 
-@app.route("/upload", methods=["POST"])
-def upload_file():
+    if not user:
+        logger.info(
+            "❌ Unauthenticated access to root - clearing session and redirecting to login"
+        )
+        request.session.clear()  # Ensure session is cleared if not authenticated
+        return RedirectResponse(url="/login", status_code=302)
+
+    logger.info(f"✅ Authenticated user accessing root: {user.email}")
+    return await show_index(request, user, db)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Display login page"""
+    user = await get_current_user_optional(request, db)
+
+    if user and not request.query_params.get(
+        "code"
+    ):  # Only redirect if not an OAuth callback
+        logger.info(f"User already authenticated: {user.email}, redirecting to /")
+        request.session.clear()  # Clear the session to force re-authentication
+        return RedirectResponse(url="/", status_code=302)
+
+    error = request.query_params.get("error")
+    return templates.TemplateResponse(
+        "login.html", {"request": request, "error": error}
+    )
+
+
+@app.get("/index", response_class=HTMLResponse)
+async def index_redirect(request: Request):
+    """Redirect /index to root"""
+    return RedirectResponse(url="/", status_code=302)
+
+
+async def show_index(request: Request, user: User, db: AsyncSession):
+    """Display main page with user's files"""
+
+    # Get only user's files from the database
+    files_result = await db.execute(select(File).where(File.owner_email == user.email))
+    user_files = files_result.scalars().all()
+
+    logger.info(f"📊 Displaying {len(user_files)} files for user {user.email}")
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "chain": user_files,
+            "current_user": user,
+        },
+    )
+
+
+@app.post("/upload")
+async def upload_file(
+    request: Request,
+    file: UploadFile = Form(...),
+    current_user: User = Depends(get_current_user_required),
+    db: AsyncSession = Depends(get_db),
+):
     """Handle file upload to IPFS and add to blockchain"""
-    if "file" not in request.files:
+    if not file:
         logger.warning("No file part in request")
-        return "No file part", 400
+        return JSONResponse(status_code=400, content={"message": "No file part"})
 
-    file = request.files["file"]
     if file.filename == "":
         logger.warning("No file selected")
-        return "No selected file", 400
+        return JSONResponse(status_code=400, content={"message": "No selected file"})
 
-    # Secure the filename
     filename = secure_filename(file.filename)
-    
-    # Additional security checks
-    if not filename or '..' in filename or filename.startswith('/'):
+    if not filename or ".." in filename or filename.startswith("/"):
         logger.warning(f"Invalid filename attempted: {filename}")
-        return "Invalid filename", 400
-    
-    # Check file extension
+        return JSONResponse(status_code=400, content={"message": "Invalid filename"})
+
     if not allowed_file(filename):
         logger.warning(f"File type not allowed: {filename}")
-        return f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}", 400
+        return JSONResponse(
+            status_code=400,
+            content={
+                "message": f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+            },
+        )
 
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    
+    file_path = os.path.join(settings.UPLOAD_FOLDER, filename)
+
     try:
-        # Save file temporarily
-        file.save(file_path)
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
         logger.info(f"📁 File saved temporarily: {filename}")
-        
-        # Upload to IPFS
+
+        # Check if a file with the same name already exists for the current user
+        existing_file = await db.execute(
+            select(File).where(
+                (File.filename == filename) & (File.owner_email == current_user.email)
+            )
+        )
+        if existing_file.scalar_one_or_none():
+            logger.warning(
+                f"User {current_user.email} already owns a file named {filename}"
+            )
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "message": f"You already own a file named '{filename}'. Please rename your file or upload a different one."
+                },
+            )
+
         ipfs_hash = ipfs_client.upload_file(file_path)
         logger.info(f"☁️ File uploaded to IPFS: {filename}, CID: {ipfs_hash}")
-        
-        # Add to blockchain
+
         new_block = blockchain.create_block(filename, ipfs_hash)
-        blockchain.save_to_file()  # Persist blockchain
-        logger.info(f"⛓️ Block #{new_block.index} added to blockchain for file: {filename}")
-        logger.info(f"📊 Total blocks in chain: {len(blockchain.get_chain())}")
-        
-        # Return success message with IPFS hash
-        return f"File uploaded successfully! IPFS CID: {ipfs_hash}"
-        
+        blockchain.save_to_file()
+        logger.info(f"⛓️ Block #{new_block.index} added to blockchain")
+
+        file_data = File(
+            filename=filename, ipfs_hash=ipfs_hash, owner_email=current_user.email
+        )
+        logger.info(f"Attempting to add file_data to database: {file_data.filename}")
+        db.add(file_data)
+        await db.commit()
+        await db.refresh(
+            file_data
+        )  # Refresh to get any database-generated defaults like id, uploaded_at
+        logger.info(
+            f"Successfully added file {file_data.filename} with ID {file_data.id} to database."
+        )
+
+        logger.info(f"✅ File upload complete for user {current_user.email}")
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": f"File uploaded successfully! IPFS CID: {ipfs_hash}",
+                "ipfs_hash": ipfs_hash,
+            },
+        )
+
     except Exception as e:
         logger.error(f"❌ Error uploading file: {str(e)}")
-        return f"Error uploading file: {str(e)}", 500
-        
+        import traceback
+
+        traceback.print_exc()
+        await db.rollback()
+        return JSONResponse(
+            status_code=500, content={"message": f"Error uploading file: {str(e)}"}
+        )
+
     finally:
-        # Clean up temporary file
         if os.path.exists(file_path):
             os.remove(file_path)
             logger.info(f"🧹 Temporary file cleaned up: {filename}")
 
-@app.route("/download", methods=["POST"])
-def download_file():
-    """Redirect to IPFS gateway for file download"""
-    ipfs_hash = request.form.get("ipfs_hash")
-    
-    if not ipfs_hash:
-        logger.warning("No IPFS hash provided for download")
-        return "No IPFS hash provided", 400
-    
-    # Basic validation of IPFS hash format (CIDv0 or CIDv1)
+
+@app.get("/download")
+async def download_file(
+    ipfs_hash: str,
+    current_user: User = Depends(get_current_user_required),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetches a file from IPFS and displays it in the browser."""
+    logger.info(f"📥 User {current_user.email} attempting to view file: {ipfs_hash}")
+
     if not ipfs_hash or len(ipfs_hash) < 10:
         logger.warning(f"Invalid IPFS hash format: {ipfs_hash}")
-        return "Invalid IPFS hash format", 400
-    
-    logger.info(f"📥 Redirecting to IPFS gateway for hash: {ipfs_hash}")
-    # Redirect to Filebase IPFS gateway
-    return redirect(f"https://ipfs.filebase.io/ipfs/{ipfs_hash}")
+        raise HTTPException(status_code=400, detail="Invalid IPFS hash format")
 
-@app.route("/validate", methods=["GET"])
-def validate_blockchain():
+    try:
+        # Get file metadata from database to determine original filename
+        result = await db.execute(
+            select(File).where(
+                File.ipfs_hash == ipfs_hash, File.owner_email == current_user.email
+            )
+        )
+        file_record = result.scalar_one_or_none()
+
+        filename = file_record.filename if file_record else f"{ipfs_hash}.bin"
+
+        file_content = ipfs_client.download_file(ipfs_hash)
+        if file_content is None:
+            logger.warning(f"⚠️ File content not found for IPFS hash {ipfs_hash}")
+            raise HTTPException(status_code=404, detail="File not found.")
+
+        # Determine content type based on file extension
+        file_ext = filename.lower().split(".")[-1] if "." in filename else ""
+
+        content_types = {
+            "pdf": "application/pdf",
+            "png": "image/png",
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "gif": "image/gif",
+            "mp4": "video/mp4",
+            "mp3": "audio/mpeg",
+            "txt": "text/plain",
+            "html": "text/html",
+            "htm": "text/html",
+            "doc": "application/msword",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "zip": "application/zip",
+        }
+
+        content_type = content_types.get(file_ext, "application/octet-stream")
+
+        logger.info(
+            f"✅ Serving file {filename} as {content_type} with inline disposition"
+        )
+
+        # IMPORTANT: Use 'inline' to display in browser, not download
+        return StreamingResponse(
+            content=iter([file_content]),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+            },
+        )
+    except Exception as e:
+        logger.error(f"❌ Error fetching or serving file {ipfs_hash}: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error serving file: {str(e)}")
+
+
+@app.get("/validate")
+async def validate_blockchain(current_user: User = Depends(get_current_user_required)):
     """Validate blockchain integrity"""
     is_valid = blockchain.is_valid()
     if is_valid:
         logger.info("✅ Blockchain validation: VALID")
-        return {"status": "valid", "message": "Blockchain is valid"}, 200
+        return JSONResponse(
+            status_code=200,
+            content={"status": "valid", "message": "Blockchain is valid"},
+        )
     else:
         logger.warning("❌ Blockchain validation: INVALID")
-        return {"status": "invalid", "message": "Blockchain has been tampered with!"}, 400
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "invalid",
+                "message": "Blockchain has been tampered with!",
+            },
+        )
 
-if __name__ == "__main__":
-    # Use environment variable for debug mode, default to False for safety
-    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
+
+# ✅ Session management endpoint
+@app.get("/api/session-status")
+async def session_status(request: Request, db: AsyncSession = Depends(get_db)):
+    """Check current session status"""
+    user = await get_current_user_optional(request, db)
+
+    if user:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "authenticated": True,
+                "user": user.email,
+                "name": user.name,
+            },
+        )
+    else:
+        return JSONResponse(
+            status_code=401,
+            content={"authenticated": False},
+        )

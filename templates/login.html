@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudSend - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .error-message {
+            background-color: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .feature-card {
+            background-color: rgba(30, 30, 50, 0.6);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(30, 144, 255, 0.3);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(30, 144, 255, 0.6);
+        }
+
+        .feature-card h3 {
+            color: #1e90ff;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            color: #b0c4de;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    <div class="container login-container">
+        <h1>Welcome to CloudSend</h1>
+        <p>Your decentralized cloud storage with blockchain verification</p>
+        
+        {% if error %}
+        <div class="error-message">
+            {% if error == 'auth_failed' %}
+            Authentication failed. Please try again.
+            {% else %}
+            An error occurred. Please try logging in again.
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <a href="/google-login" class="btn login-btn">Login with Google</a>
+
+        <div class="features">
+            <div class="feature-card">
+                <h3>🔒 Secure Storage</h3>
+                <p>Your files are stored on IPFS with end-to-end encryption and blockchain verification</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔗 Blockchain Verified</h3>
+                <p>Every upload is recorded on an immutable blockchain for complete transparency</p>
+            </div>
+            <div class="feature-card">
+                <h3>☁️ Decentralized</h3>
+                <p>No single point of failure. Your data is distributed across the IPFS network</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Clear error from URL after displaying it
+        if (window.location.search.includes('error=')) {
+            // Remove error parameter from URL without page reload
+            const url = new URL(window.location);
+            url.searchParams.delete('error');
+            window.history.replaceState({}, document.title, url.pathname);
+        }
+    </script>
+</body>
+</html>
