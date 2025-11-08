@@ -8,6 +8,7 @@ from fastapi.responses import (
 )
 from fastapi.templating import Jinja2Templates
 from werkzeug.utils import secure_filename
+from urllib.parse import quote as url_quote
 import os
 from datetime import datetime
 import logging
@@ -22,6 +23,7 @@ from database import User, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import secrets
+import traceback
 
 
 class Settings(BaseSettings):
@@ -161,8 +163,6 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
-        import traceback
-
         traceback.print_exc()
         return RedirectResponse(url="/login?error=auth_failed", status_code=302)
 
@@ -384,8 +384,6 @@ async def upload_file(
 
     except Exception as e:
         logger.error(f"❌ Error uploading file: {str(e)}")
-        import traceback
-
         traceback.print_exc()
         await db.rollback()
         return JSONResponse(
@@ -401,35 +399,35 @@ async def upload_file(
 @app.get("/download")
 async def download_file(
     ipfs_hash: str,
-    current_user: User = Depends(get_current_user_required),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Fetches a file from IPFS and displays it in the browser."""
-    logger.info(f"📥 User {current_user.email} attempting to view file: {ipfs_hash}")
-
-    if not ipfs_hash or len(ipfs_hash) < 10:
-        logger.warning(f"Invalid IPFS hash format: {ipfs_hash}")
-        raise HTTPException(status_code=400, detail="Invalid IPFS hash format")
-
     try:
-        # Get file metadata from database to determine original filename
-        result = await db.execute(
-            select(File).where(
-                File.ipfs_hash == ipfs_hash, File.owner_email == current_user.email
+        result = await db.execute(select(File).where(File.ipfs_hash == ipfs_hash))
+        records = result.scalars().all()
+
+        if not records:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if len(records) > 1:
+            logger.warning(
+                "Multiple DB records found for ipfs_hash %s — using the first record. Consider enforcing uniqueness or cleaning duplicates.",
+                ipfs_hash,
             )
-        )
-        file_record = result.scalar_one_or_none()
 
-        filename = file_record.filename if file_record else f"{ipfs_hash}.bin"
+        file_record = records[0]
 
+        filename = file_record.filename
         file_content = ipfs_client.download_file(ipfs_hash)
+
         if file_content is None:
-            logger.warning(f"⚠️ File content not found for IPFS hash {ipfs_hash}")
-            raise HTTPException(status_code=404, detail="File not found.")
+            raise HTTPException(status_code=404, detail="File not found on IPFS")
 
-        # Determine content type based on file extension
+        # Determine content type based on file extension. Include a sensible
+        # default and expand common renderable types so the browser can display
+        # them inline (open in new tab) instead of forcing a download.
         file_ext = filename.lower().split(".")[-1] if "." in filename else ""
-
         content_types = {
             "pdf": "application/pdf",
             "png": "image/png",
@@ -437,7 +435,9 @@ async def download_file(
             "jpeg": "image/jpeg",
             "gif": "image/gif",
             "mp4": "video/mp4",
+            "webm": "video/webm",
             "mp3": "audio/mpeg",
+            "wav": "audio/wav",
             "txt": "text/plain",
             "html": "text/html",
             "htm": "text/html",
@@ -448,23 +448,43 @@ async def download_file(
 
         content_type = content_types.get(file_ext, "application/octet-stream")
 
+        # Decide whether to request inline display or attachment download.
+        # Browsers will render inline for images, pdf, text, html, audio and video
+        # when Content-Disposition is 'inline' and a supported media type is sent.
+        inline_types = (
+            "application/pdf",
+            "text/plain",
+            "text/html",
+        )
+
+        disposition = "attachment"
+        if (
+            content_type.startswith("image/")
+            or content_type.startswith("video/")
+            or content_type.startswith("audio/")
+            or content_type in inline_types
+        ):
+            disposition = "inline"
+
+        safe_name = secure_filename(filename) or f"file.{file_ext}"
+        encoded_name = url_quote(filename)
+
+        content_disposition = (
+            f"{disposition}; filename=\"{safe_name}\"; filename*=UTF-8''{encoded_name}"
+        )
+
+        headers = {"Content-Disposition": content_disposition}
+
         logger.info(
-            f"✅ Serving file {filename} as {content_type} with inline disposition"
+            f"✅ Serving file {filename} ({ipfs_hash}) as {content_type} with disposition={disposition}"
         )
 
-        # IMPORTANT: Use 'inline' to display in browser, not download
         return StreamingResponse(
-            content=iter([file_content]),
-            media_type=content_type,
-            headers={
-                "Content-Disposition": f'inline; filename="{filename}"',
-            },
+            content=iter([file_content]), media_type=content_type, headers=headers
         )
-    except Exception as e:
-        logger.error(f"❌ Error fetching or serving file {ipfs_hash}: {str(e)}")
-        import traceback
 
-        traceback.print_exc()
+    except Exception as e:
+        logger.error(f"❌ Error serving file {ipfs_hash}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error serving file: {str(e)}")
 
 

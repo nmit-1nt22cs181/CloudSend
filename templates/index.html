@@ -1,306 +1,322 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudSend - Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="background"></div>
+    <div class="background">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
 
     <div class="container">
-        <header>
-            <h1>CloudSend</h1>
-            <p>Your decentralized cloud storage with blockchain verification</p>
-            {% if current_user %}
-            <div class="auth-controls">
-                <p class="welcome-text">Welcome, <strong>{{ current_user.name }}</strong>!</p>
-                <a href="/logout" class="btn logout-btn">Logout</a>
+        <header class="main-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor" opacity="0.8"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>CloudSend</h1>
+                        <p class="subtitle">Decentralized Cloud Storage</p>
+                    </div>
+                </div>
+                {% if current_user %}
+                <div class="auth-controls">
+                    <div class="user-badge">
+                        <div class="user-avatar">
+                            <span>{{ current_user.name[0] }}</span>
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ current_user.name }}</span>
+                            <span class="user-status">● Active</span>
+                        </div>
+                    </div>
+                    <a href="/logout" class="btn btn-logout">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Logout
+                    </a>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </header>
 
         {% if current_user %}
-        <div class="file-sections">
-            <div class="card">
-                <h2>Upload a File</h2>
-                <form id="upload-form">
-                    <div class="file-input-wrapper">
-                        <input type="file" name="file" id="file-input" required>
-                        <label for="file-input" class="file-input-label">Choose File</label>
-                        <span id="file-name">No file chosen</span>
-                    </div>
-                    <button type="submit" class="btn" id="upload-btn">Upload</button>
-                </form>
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Files</span>
+                    <span class="stat-value">{{ chain|length }}</span>
+                </div>
             </div>
-
-            <div class="card">
-                <h2>View File</h2>
-                <input type="text" id="ipfs-hash-input" placeholder="Enter IPFS Hash" class="input-text" required>
-                <button type="button" class="btn" id="view-file-btn">View File</button>
-                <p class="hint-text" style="margin-top: 10px; font-size: 0.9em; color: #888;">File will open in a new tab where you can view and download it</p>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Blockchain Verified</span>
+                    <span class="stat-value">100%</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Storage</span>
+                    <span class="stat-value">Secure</span>
+                </div>
             </div>
         </div>
 
-        <div class="blockchain-wrapper">
-            <div class="card blockchain-card">
-                <h2>Your Uploaded Files</h2>
+        <!-- Action Cards -->
+        <div class="action-section">
+            <div class="action-card upload-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <h2>Upload File</h2>
+                    </div>
+                    <span class="card-badge">IPFS Storage</span>
+                </div>
+                <form id="upload-form">
+                    <div class="file-drop-zone" id="drop-zone">
+                        <input type="file" name="file" id="file-input" required>
+                        <div class="drop-zone-content">
+                            <svg class="drop-icon" viewBox="0 0 24 24" fill="none">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5-5 5 5M12 5v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <p class="drop-text">Drag & drop your file here</p>
+                            <p class="drop-subtext">or</p>
+                            <label for="file-input" class="file-input-label">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                Choose File
+                            </label>
+                            <span id="file-name" class="file-name-display"></span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="upload-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Upload to IPFS
+                    </button>
+                </form>
+            </div>
+
+            <div class="action-card view-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        <h2>View File</h2>
+                    </div>
+                    <span class="card-badge">IPFS Network</span>
+                </div>
+                <div class="view-file-content">
+                    <div class="input-group">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="text" id="ipfs-hash-input" placeholder="Enter IPFS Hash (e.g., Qm...)" class="input-text" required>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="view-file-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        View File
+                    </button>
+                    <p class="hint-text">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        File will open in a new tab for viewing and downloading
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Files Table -->
+        <div class="files-section">
+            <div class="section-header">
+                <div class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <h2>Your Uploaded Files</h2>
+                </div>
+                <div class="file-count-badge">
+                    <span>{{ chain|length }} file{{ 's' if chain|length != 1 else '' }}</span>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                {% if chain|length > 0 %}
                 <div class="table-wrapper">
-                    {% if chain|length > 0 %}
-                    <table>
+                    <table class="files-table">
                         <thead>
                             <tr>
-                                <th>Filename</th>
-                                <th>IPFS Hash</th>
-                                <th>Upload Time</th>
-                                <th>Actions</th>
+                                <th class="col-index">#</th>
+                                <th class="col-filename">
+                                    <div class="th-content">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" stroke-width="2"/>
+                                            <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        Filename
+                                    </div>
+                                </th>
+                                <th class="col-hash">
+                                    <div class="th-content">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        IPFS Hash
+                                    </div>
+                                </th>
+                                <th class="col-time">
+                                    <div class="th-content">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                            <polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        Upload Time
+                                    </div>
+                                </th>
+                                <th class="col-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="files-table-body">
                             {% for block in chain %}
-                            <tr>
-                                <td>{{ block.filename }}</td>
-                                <td class="hash-cell">{{ block.ipfs_hash }}</td>
-                                <td>{{ block.uploaded_at | timestamp_to_string }}</td>
-                                <td>
-                                    <button class="btn-small copy-btn" data-hash="{{ block.ipfs_hash }}">Copy Hash</button>
+                            <tr class="file-row">
+                                <td class="col-index">
+                                    <span class="index-badge">{{ loop.index }}</span>
+                                </td>
+                                <td class="col-filename">
+                                    <div class="filename-cell">
+                                        <svg class="file-icon" viewBox="0 0 24 24" fill="none">
+                                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" stroke-width="2"/>
+                                            <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span class="filename-text">{{ block.filename }}</span>
+                                    </div>
+                                </td>
+                                <td class="col-hash">
+                                    <div class="hash-cell">
+                                        <code class="hash-code">{{ block.ipfs_hash }}</code>
+                                    </div>
+                                </td>
+                                <td class="col-time">
+                                    <span class="time-text">{{ block.uploaded_at | timestamp_to_string }}</span>
+                                </td>
+                                <td class="col-actions">
+                                    <button class="btn-icon copy-btn" data-hash="{{ block.ipfs_hash }}" title="Copy Hash">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span class="btn-text">Copy</span>
+                                    </button>
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
-                    {% else %}
-                    <p class="no-files-message">No files uploaded yet. Upload your first file above!</p>
-                    {% endif %}
                 </div>
+                {% else %}
+                <div class="empty-state">
+                    <svg class="empty-icon" viewBox="0 0 24 24" fill="none">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <h3>No Files Yet</h3>
+                    <p>Upload your first file to get started with decentralized storage</p>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% else %}
         <div class="error-container">
+            <div class="error-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
             <h2>Authentication Required</h2>
-            <p>You must be logged in to access this page.</p>
-            <a href="/login" class="btn">Go to Login</a>
+            <p>You must be logged in to access the dashboard.</p>
+            <a href="/login" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Go to Login
+            </a>
         </div>
         {% endif %}
-
     </div>
 
     <!-- Upload Status Popup -->
-    <div id="upload-popup" class="popup-container">
-        <div class="popup-content">
-            <span class="close-btn" id="close-x">&times;</span>
-            <div id="popup-icon"></div>
-            <h3 id="popup-title">Upload Status</h3>
-            <p id="popup-message"></p>
-            <p id="popup-ipfs-hash"></p>
-            <button class="btn" id="close-popup-btn">Close</button>
+    <div id="upload-popup" class="popup-overlay">
+        <div class="popup-card">
+            <button class="popup-close" id="close-x" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <div class="popup-icon" id="popup-icon"></div>
+            <h3 id="popup-title" class="popup-title">Upload Status</h3>
+            <p id="popup-message" class="popup-message"></p>
+            <div id="popup-ipfs-hash" class="popup-hash"></div>
+            <button class="btn btn-primary" id="close-popup-btn">Close</button>
         </div>
     </div>
 
     <!-- Session Expired Popup -->
-    <div id="session-expired-popup" class="popup-container">
-        <div class="popup-content">
-            <h3>Session Expired</h3>
-            <p>Your session has expired. Please log in again.</p>
-            <a href="/login" class="btn">Login</a>
+    <div id="session-expired-popup" class="popup-overlay">
+        <div class="popup-card">
+            <div class="popup-icon error">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h3 class="popup-title">Session Expired</h3>
+            <p class="popup-message">Your session has expired. Please log in again.</p>
+            <a href="/login" class="btn btn-primary">Login</a>
         </div>
     </div>
 
-    <script>
-        // ✅ Session management and authentication check
-        let sessionCheckInterval;
-
-        async function checkSession() {
-            try {
-                const response = await fetch('/api/session-status');
-                const data = await response.json();
-                
-                if (!data.authenticated) {
-                    clearInterval(sessionCheckInterval);
-                    document.getElementById('session-expired-popup').style.display = 'flex';
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 3000);
-                }
-            } catch (error) {
-                console.error('Session check failed:', error);
-            }
-        }
-
-        // Check session every 5 minutes
-        sessionCheckInterval = setInterval(checkSession, 5 * 60 * 1000);
-
-        // File input handling
-        const fileInput = document.getElementById('file-input');
-        const fileName = document.getElementById('file-name');
-        const uploadForm = document.getElementById('upload-form');
-        const uploadBtn = document.getElementById('upload-btn');
-        const uploadPopup = document.getElementById('upload-popup');
-        const popupTitle = document.getElementById('popup-title');
-        const popupMessage = document.getElementById('popup-message');
-        const popupIpfsHash = document.getElementById('popup-ipfs-hash');
-        const popupIcon = document.getElementById('popup-icon');
-        const closeX = document.getElementById('close-x');
-        const closePopupBtn = document.getElementById('close-popup-btn');
-
-        if (fileInput) {
-            fileInput.addEventListener('change', () => {
-                if (fileInput.files.length > 0) {
-                    fileName.textContent = fileInput.files[0].name;
-                } else {
-                    fileName.textContent = "No file chosen";
-                }
-            });
-        }
-
-        // Handle file upload with AJAX
-        if (uploadForm) {
-            uploadForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const formData = new FormData();
-                const file = fileInput.files[0];
-                
-                if (!file) {
-                    alert('Please select a file to upload');
-                    return;
-                }
-                
-                formData.append('file', file);
-                
-                // Disable upload button and show loading state
-                uploadBtn.disabled = true;
-                uploadBtn.textContent = 'Uploading...';
-                
-                try {
-                    const response = await fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok) {
-                        // Success
-                        popupIcon.innerHTML = '✅';
-                        popupIcon.style.fontSize = '48px';
-                        popupIcon.style.color = '#4ade80';
-                        popupTitle.textContent = 'Upload Successful!';
-                        popupMessage.textContent = data.message || 'File uploaded successfully!';
-                        popupIpfsHash.innerHTML = `<strong>IPFS Hash:</strong> <span style="word-break: break-all;">${data.ipfs_hash}</span>`;
-                        
-                        // Reset form
-                        uploadForm.reset();
-                        fileName.textContent = 'No file chosen';
-                        
-                        // Refresh the files table after a short delay
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
-                        
-                    } else {
-                        // Error
-                        popupIcon.innerHTML = '❌';
-                        popupIcon.style.fontSize = '48px';
-                        popupIcon.style.color = '#ef4444';
-                        popupTitle.textContent = 'Upload Failed';
-                        popupMessage.textContent = data.message || 'An error occurred during upload';
-                        popupIpfsHash.textContent = '';
-                    }
-                    
-                    // Show popup
-                    uploadPopup.style.display = 'flex';
-                    
-                } catch (error) {
-                    console.error('Upload error:', error);
-                    popupIcon.innerHTML = '❌';
-                    popupIcon.style.fontSize = '48px';
-                    popupIcon.style.color = '#ef4444';
-                    popupTitle.textContent = 'Upload Failed';
-                    popupMessage.textContent = 'Network error occurred';
-                    popupIpfsHash.textContent = '';
-                    uploadPopup.style.display = 'flex';
-                } finally {
-                    // Re-enable upload button
-                    uploadBtn.disabled = false;
-                    uploadBtn.textContent = 'Upload';
-                }
-            });
-        }
-
-        // Handle view file button click
-        const viewFileBtn = document.getElementById('view-file-btn');
-        const ipfsHashInput = document.getElementById('ipfs-hash-input');
-
-        if (viewFileBtn) {
-            viewFileBtn.addEventListener('click', () => {
-                const ipfsHash = ipfsHashInput.value.trim();
-                if (ipfsHash) {
-                    // Open the file in a new tab for viewing
-                    window.open(`/download?ipfs_hash=${ipfsHash}`, '_blank');
-                    ipfsHashInput.value = ''; // Clear input after opening
-                } else {
-                    alert('Please enter an IPFS Hash to view the file.');
-                }
-            });
-            
-            // Allow Enter key to trigger view
-            ipfsHashInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    viewFileBtn.click();
-                }
-            });
-        }
-
-        // Close popup handlers
-        function closePopup() {
-            uploadPopup.style.display = 'none';
-        }
-
-        if (closePopupBtn) {
-            closePopupBtn.addEventListener('click', closePopup);
-        }
-
-        if (closeX) {
-            closeX.addEventListener('click', closePopup);
-        }
-
-        window.addEventListener('click', (event) => {
-            if (event.target === uploadPopup) {
-                closePopup();
-            }
-        });
-
-        // Copy hash functionality
-        document.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const hash = e.target.getAttribute('data-hash');
-                try {
-                    await navigator.clipboard.writeText(hash);
-                    e.target.textContent = 'Copied!';
-                    e.target.style.backgroundColor = '#4ade80';
-                    setTimeout(() => {
-                        e.target.textContent = 'Copy Hash';
-                        e.target.style.backgroundColor = '';
-                    }, 2000);
-                } catch (err) {
-                    console.error('Failed to copy:', err);
-                    e.target.textContent = 'Failed';
-                    setTimeout(() => {
-                        e.target.textContent = 'Copy Hash';
-                    }, 2000);
-                }
-            });
-        });
-
-        // Prevent back button after logout
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-                window.location.reload();
-            }
-        });
-    </script>
+    <script src="/static/scripts.js"></script>
 </body>
 </html>

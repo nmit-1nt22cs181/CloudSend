@@ -1,8 +1,6 @@
 # blockchain.py
 import hashlib
 import time
-import json
-import os
 
 
 class Block:

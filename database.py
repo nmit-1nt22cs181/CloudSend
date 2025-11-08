@@ -32,7 +32,7 @@ class File(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    ipfs_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    ipfs_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     owner_email: Mapped[str] = mapped_column(
         String(255), ForeignKey("users.email"), nullable=False, index=True
     )
