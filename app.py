@@ -55,7 +55,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
     max_age=3600,  # 1 hour
-    same_site="lax",  # Changed to 'lax' for OAuth compatibility
+    same_site="lax",
     https_only=False,
     path="/",
 )
