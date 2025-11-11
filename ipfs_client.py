@@ -11,13 +11,11 @@ logger = logging.getLogger(__name__)
 class IPFSClient:
     def __init__(self):
         # Get credentials from environment variables with hardcoded fallback
-        access_key = os.getenv("FILEBASE_ACCESS_KEY", "119A3E62CFD56056C119")
-        secret_key = os.getenv(
-            "FILEBASE_SECRET_KEY", "7u6qNi6p3SXuf6aAR6LGHUuYV6JlEPMpmcpw8XzM"
-        )
+        access_key = os.getenv("FILEBASE_ACCESS_KEY")
+        secret_key = os.getenv("FILEBASE_SECRET_KEY")
 
         # Bucket name - REPLACE 'cloudsend-uploads' with YOUR actual bucket name from Filebase!
-        self.bucket_name = os.getenv("FILEBASE_BUCKET", "cloud-send-sanjith")
+        self.bucket_name = os.getenv("FILEBASE_BUCKET")
 
         if not access_key:
             raise ValueError(
@@ -154,7 +152,7 @@ class IPFSClient:
                 logger.warning(f"Error accessing Filebase bucket: {e}")
 
             # Method 2: Try public IPFS gateways
-            logger.info(f"Attempting to download from public IPFS gateways")
+            logger.info("Attempting to download from public IPFS gateways")
             gateways = [
                 f"https://ipfs.filebase.io/ipfs/{ipfs_hash}",
                 f"https://ipfs.io/ipfs/{ipfs_hash}",
@@ -222,8 +220,4 @@ class IPFSClient:
 
         except Exception as e:
             logger.error(f"Error getting file info: {e}")
-<<<<<<< HEAD
             return None
-=======
-            return None
->>>>>>> 9d412e3b7dec77adff260fa7c2b563790b435f65

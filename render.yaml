@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: cloudsend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cloudsend-db
+          property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: FILEBASE_ACCESS_KEY
+        sync: false
+      - key: FILEBASE_SECRET_KEY
+        sync: false
+      - key: FILEBASE_BUCKET
+        value: cloud-send-sanjith
+      - key: SECRET_KEY
+        generateValue: true
+
+databases:
+  - name: cloudsend-cc
+    databaseName: cloudsend_59dp
+    user: cloudsend_59dp_user
